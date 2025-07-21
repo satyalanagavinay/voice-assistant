@@ -1,0 +1,49 @@
+import socket
+import threading
+import random
+import sys
+
+def client_receive(client_socket):
+    while True:
+        try:
+            message, _ = client_socket.recvfrom(1024)
+            print(message.decode())
+        except OSError:
+            break
+        except Exception as e:
+            print(f"Client receive error: {e}")
+            break
+
+def run_client():
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    name = input("Enter nickname: ")
+    server_ip = "YOUR_SERVER_IP_ADDRESS_HERE"
+    server_address = (server_ip, 9998)
+
+    receive_thread = threading.Thread(target=client_receive, args=(client,))
+    receive_thread.daemon = True
+    receive_thread.start()
+
+    client.sendto(f"{name} has joined the chat.".encode(), server_address)
+
+    try:
+        while True:
+            message = input("")
+            if message.lower() == "!q":
+                print("Leaving the chat...")
+                break
+            
+            full_message = f"{name}: {message}"
+            client.sendto(full_message.encode(), server_address)
+    except KeyboardInterrupt:
+        print("Client shutting down.")
+    finally:
+        client.close()
+        print("Client closed.")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "server":
+        print("To run as a client, do not include the 'server' argument.")
+    else:
+        run_client()
