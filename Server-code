@@ -1,0 +1,62 @@
+import socket
+import threading
+import queue
+import sys
+
+def server_receive(server_socket):
+    messages = queue.Queue()
+    clients = []
+    
+    receive_thread = threading.Thread(target=receive_handler, args=(server_socket, messages))
+    broadcast_thread = threading.Thread(target=broadcast_handler, args=(server_socket, messages, clients))
+
+    receive_thread.start()
+    broadcast_thread.start()
+    
+    receive_thread.join()
+    broadcast_thread.join()
+
+def receive_handler(sock, messages_queue):
+    while True:
+        try:
+            message, addr = sock.recvfrom(1024)
+            messages_queue.put((message, addr))
+        except OSError:
+            break
+        except Exception as e:
+            print(f"Server receive error: {e}")
+
+def broadcast_handler(sock, messages_queue, clients):
+    while True:
+        try:
+            message, addr = messages_queue.get(timeout=1.0)
+            print(message.decode())
+            if addr not in clients:
+                clients.append(addr)
+            for client in clients:
+                try:
+                    sock.sendto(message, client)
+                except OSError:
+                    clients.remove(client)
+                except Exception as e:
+                    print(f"Broadcast error to client {client}: {e}")
+        except queue.Empty:
+            continue
+
+def run_server():
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        server.bind(("YOUR_SERVER_IP_ADDRESS_HERE", 9998))
+        print(f"Server started on YOUR_SERVER_IP_ADDRESS_HERE:9998")
+        server_receive(server)
+    except OSError as e:
+        print(f"Server bind error: {e}")
+    finally:
+        server.close()
+        print("Server closed")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "server":
+        run_server()
+    else:
+        print("This script is intended to be run as a server with 'python your_script_name.py server'")
